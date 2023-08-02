@@ -2,14 +2,15 @@
 Scripts for personal tasks automation
 
 ## TSBTRFS:
-Installing Timeshift on a BTRFS system allows the user to use the fast BTRFS 
-snapshots automatically after system updates, which is clearly an advantage. 
-However, BTRFS snapshots can only be stored in the system root partition, not 
-allowing backups to an external drive, for example. On the other hand, the user 
-can opt for configure RSYNC mode, giving up BTRFS snapshots, but storing system 
-backups on any partition.
+Timeshift offers two options of backups for BTRFS systems. The first
+option is the RSYNC mode, wich takes time, but allows the backup to be
+stored in any available partition. The other one is the BTRFS mode, wich
+takes fast snapshots, also automatically -- when the system packages are
+updated -- but, only allowing to store these snapshots in the system root
+partition.
 
-Thinking about this problem, and trying to use both resources in an easy way, 
-this script automates the transition between BTRFS and RSYNC modes, allowing to 
-have both types of backups, not discarding backups stored in other partitions, 
-nor post-upgrade quick backups.
+Thinking about this and trying to use both features in an easy way, this script
+automates the transition between BTRFS and RSYNC modes, allowing to have both
+types of backups, so as to make it possible to take snapshots to an external
+drive, for example, and keep monitoring the system updates, so then, the fast
+BTRFS snapshots can be taken.
