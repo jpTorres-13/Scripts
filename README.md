@@ -1,7 +1,11 @@
 # Scripts
 Scripts for personal tasks automation
 
-## TSBTRFS:
+* TSBTRFS: Timeshift mode change automation (from BTRFS to RSYNC and back).
+
+---
+
+## TSBTRFS
 Timeshift offers two options of backups for BTRFS systems. The first
 option is the RSYNC mode, wich takes time, but allows the backup to be
 stored in any available partition. The other one is the BTRFS mode, wich
