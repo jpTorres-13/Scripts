@@ -179,7 +179,7 @@ tsbtrfs_maker() {
 
 		rsync="$(tsbtrfs_get_info "$tag_rsync")"								# get device label
 		rsync=$(sudo blkid | grep "LABEL=\"$rsync\"" | cut -d ':' -f 1)			# get device
-		date=$(date +%d-%m-%Y)													# get current date
+		date=$(date +%d-%m-%Y-%H-%M-%S)											# get current date
 
 		log "#################################################### Backup maker" # register logging for starting task
 		if [ "$rsync" != "" ]; then												# if the partition was found
@@ -193,7 +193,7 @@ tsbtrfs_maker() {
 					log "$msg2"													# register log for setted rsync mode
 				fi
 
-				sudo timeshift --create --comments "$date home backup" --tags D	# make Timeshift rsync snapshot
+				sudo timeshift --create --comments "$date home backup"			# make Timeshift rsync snapshot
 				status=$?														# store the exit status of the previous command
 				if [ $status -ne 0 ]; then										# if exit status is not 0
 					log "$err3" && exit 3										# regiter log for error while creating snapshot
