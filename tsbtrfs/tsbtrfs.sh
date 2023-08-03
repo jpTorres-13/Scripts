@@ -181,7 +181,6 @@ tsbtrfs_maker() {
 		rsync=$(sudo blkid | grep "LABEL=\"$rsync\"" | cut -d ':' -f 1)			# get device
 		date=$(date +%d-%m-%Y)													# get current date
 
-		log ""
 		log "#################################################### Backup maker" # register logging for starting task
 		if [ "$rsync" != "" ]; then												# if the partition was found
 			if [ ! -f "${flag}_${date}" ]; then									# if file flag does not exist
@@ -240,7 +239,6 @@ tsbtrfs_cleaner() {
 		new="$(tsbtrfs_get_info "$tag_new")"									# get number of new snapshots to keep
 		rsync=$(sudo blkid | grep "LABEL=\"$rsync\"" | cut -d ':' -f 1)			# get device
 
-		log ""
 		log "################################################## Backup cleaner" # register logging for starting task
 		if [ "$rsync" != "" ]; then												# if the partition was found
 			log "$msg6"															# register logging for starting the process
