@@ -2,16 +2,18 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #			TSBTRFS - Script to manage RSYNC backups in BTRFS systems			#
 #																				#
-# version ^1.0.0 - 01/08/23														#
+# version ^1.1.0 - 09/08/23														#
 # author: João Pedro Torres														#
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 ################################################################ text generators
 readonly tag_rsync="TSBTRFS_RSYNC_LABEL"
+readonly tag_bfreq="TSBTRFS_BACKUP_FREQUENCY"
+readonly tag_cfreq="TSBTRFS_CLEANING_FREQUENCY"
 readonly tag_old="TSBTRFS_OLD_BACKUPS_TO_KEEP"
 readonly tag_new="TSBTRFS_NEW_BACKUPS_TO_KEEP"
 
-helper="TSBTRFS v1.0.0 by João Pedro Torres
+helper="TSBTRFS v1.1.0 by João Pedro Torres
 
 This is a Timeshift rsync backup automation tool for btrfs systems.
 Timeshift  offers two modes of  backup for BTRFS file  systems: the
@@ -43,14 +45,17 @@ Notes:
 
 Is needed to run 'sudo tsbtrfs --init' to start  the tool  usage.
 After setting the configuration file using the command above, is
-recommended to insert the '--backup' and '--clear' to su crontab."
+recommended to insert the '--backup' and '--clear' to su crontab
+to be run after every boot (with the tag '@reboot', for example).
+Doing  it, TSBTRFS will  do  the backups and cleanups  according
+to the setted snapshot frequency."
 
 # $1 label
 # $2 old
 # $3 new
 tsbtrfs_conff() {
 	echo "#########
-## TSBTRFS Config -- version ^1.0.0
+## TSBTRFS Config -- version ^1.1.0
 ## Author: João Pedro Torres
 
 ## Set the device to receive the rsync backups by entering it's
@@ -62,6 +67,12 @@ $tag_old=$2
 
 ## Set the number of new backups to not delete
 $tag_new=$3
+
+## Set the frequency of the backups
+$tag_bfreq=$4
+
+## Set the frequency of the backup cleaning
+$tag_cfreq=$5
 "
 }
 
@@ -114,10 +125,68 @@ create_logf() {
 log() {
 	create_logf																	# verify existence of the logging file
 	sudo echo "[$(date +'%d/%m/%y %H:%M:%S')] $1" >> "$loggf"					# register logging in logging file
+	echo "[$(date +'%d/%m/%y %H:%M:%S')] $1"									# inform the logging
 }
 
 tsbtrfs_get_info() {
 	echo "$(grep -E "^$1=" $conff | cut -d "=" -f 2)"
+}
+
+# $1 date
+tsbtrfs_get_concurrent_flag() {
+	confd_len=$(expr length "$confd")											# config directory length
+	flag_len=$(expr length "$flag" - $confd_len)								# flag name length
+	output=$(ls $confd | grep ${flag:$confd_len+1}*)							# get list of flags
+	freq="$(tsbtrfs_get_info $tag_bfreq)"										# get the setted backup frequency
+	cur_date="$1" val=															# get parameter and declare auxiliar variable
+	concurrent_flags=()															# found concurrent flags
+
+	case $freq in
+		"h")																	# if backup frequency is "h"
+			while IFS= read -r line; do											# read all lines from output
+				val=${line:$flag_len+6:2}										# flag's hour
+				if [ "$val" = "${cur_date:6:2}" ]; then							# check if flag is concurrent by flag's hour
+					concurrent_flags+=($line)									# insert flag into the list
+				fi
+			done <<< "$output"													# input output for reading
+		;;
+		"y")																	# if backup frequency is "y"
+			while IFS= read -r line; do											# read all lines from output
+				val=${line:$flag_len+4:2}										# flag's year
+				if [ "$val" = "${cur_date:4:2}" ]; then							# check if flag is concurrent by flag's year
+					concurrent_flags+=($line)									# insert flag into the list
+				fi
+			done <<< "$output"													# input output for reading
+		;;
+		"m")																	# if backup frequency is "m"
+			while IFS= read -r line; do											# read all lines from output
+				val=${line:$flag_len+2:2}										# flag's month
+				if [ "$val" = "${cur_date:2:2}" ]; then							# check if flag is concurrent by flag's month
+					concurrent_flags+=($line)									# insert flag into the list
+				fi
+			done <<< "$output"													# input output for reading
+		;;
+		"w")																	# if backup frequency is "w"
+			while IFS= read -r line; do											# read all lines from output
+				val=${line:$flag_len+12}										# flag's week
+				if [ "$val" = "${cur_date:12}" ]; then							# check if flag is concurrent by flag's week
+					concurrent_flags+=($line)									# insert flag into the list
+				fi
+			done <<< "$output"													# input output for reading
+		;;
+		"d")																	# if backup frequency is "d"
+			while IFS= read -r line; do											# read all lines from output
+				val=${line:$flag_len:2}											# flag's day
+				if [ "$val" = "${cur_date:0:2}" ]; then							# check if flag is concurrent by flag's day
+					concurrent_flags+=($line)									# insert flag into the list
+				fi
+			done <<< "$output"													# input output for reading
+		;;
+		*)
+		;;
+	esac
+
+	echo "$concurrent_flags"
 }
 
 ################################################################### menu methods
@@ -153,14 +222,36 @@ tsbtrfs_init() {
 		echo "Choose how many of the newest backups will shall not be removed."	# show instruction for keep new backups
 		read -r -p "Enter the number of new snapshots to keep: " new			# read input for new backups to keep
 
+		echo "Choose the frequency of the backups by typing one letter."		# show instruction for keep new backups
+		echo "Unvaliable options will be interpreted as custom."
+		echo "[y]yearly [m]monthly [w]weekly [d]dayly [h]hourly [c]custom"		# show options
+		read -r -p "Enter the letter to tag the backup frequency: " b_freq		# read input for new backups to keep
+
+		echo "Choose the frequency of the cleaning by typing one letter."		# show instruction for keep new backups
+		echo "Unvaliable options will be interpreted as custom."
+		echo "[y]yearly [m]monthly [w]weekly [d]dayly [h]hourly [c]custom"		# show options
+		read -r -p "Enter the letter to tag the cleaning frequency: " c_freq	# read input for new backups to keep
+
 		if [ ! -d $confd ]; then												# if there is no config directory
 			sudo mkdir "$confd"													# create config directory
 			sudo touch "$conff" "$loggf"										# create config and logging files
 			sudo echo "logging file creation: $(date)" > "$loggf"				# register logging for creating logging file
 		fi
 
+		# check and normalize input for b_freq
+		if [ $b_freq != "y" ] && [ $b_freq != "m" ] && [ $b_freq != "w" ] &&
+		[ $b_freq != "d" ] && [ $b_freq != "h" ] && [ $b_freq != "c" ]; then
+			b_freq="c"
+		fi
+
+		# check and normalize input for c_freq
+		if [ $c_freq != "y" ] && [ $c_freq != "m" ] && [ $c_freq != "w" ] &&
+		[ $c_freq != "d" ] && [ $c_freq != "h" ] && [ $c_freq != "c" ]; then
+			c_freq="c"
+		fi
+
 		if [ ! -f $conff ]; then touch "$conff"; fi								# if there is no config file, create it
-		echo "$(tsbtrfs_conff $label $old $new)" > $conff						# write into the config file
+		echo "$(tsbtrfs_conff $label $old $new $b_freq $c_freq)" > $conff		# write into the config file
 	else																		# if not running with sudo
 		echo "This command should being run with sudo privilegies."				# show instructions
 		echo "Run \"sudo tsbtrfs --init\" instead."
@@ -177,13 +268,16 @@ tsbtrfs_maker() {
 			sudo echo "logging file creation: $(date)" > "$loggf"				# register logging for creating logging file
 		fi
 
+		tag="$(tsbtrfs_get_info "$tag_bfreq")"									# get frequency of execution
 		rsync="$(tsbtrfs_get_info "$tag_rsync")"								# get device label
 		rsync=$(sudo blkid | grep "LABEL=\"$rsync\"" | cut -d ':' -f 1)			# get device
-		date=$(date +%d-%m-%Y-%H-%M-%S)											# get current date
+		date=$(date +%d%m%y%H%M%S%V) today=$(date +"%d/%m/%Y %H:%M:%S")			# get current date
 
 		log "#################################################### Backup maker" # register logging for starting task
 		if [ "$rsync" != "" ]; then												# if the partition was found
-			if [ ! -f "${flag}_${date}" ]; then									# if file flag does not exist
+			concurrent_flags=$(echo "$(tsbtrfs_get_concurrent_flag $date)")		# get flags that may concur with the current backup
+
+			if [ "$concurrent_flags" = "" ]; then								# if file flag does not exist
 				log "$msg1"														# register log for statrting process
 				sudo timeshift --rsync --snapshot-device "$rsync"				# set Timeshift to RSYNC mode
 				status=$?														# store the exit status of the previous command
@@ -193,7 +287,7 @@ tsbtrfs_maker() {
 					log "$msg2"													# register log for setted rsync mode
 				fi
 
-				sudo timeshift --create --comments "$date home backup"			# make Timeshift rsync snapshot
+				sudo timeshift --create --comments "$today home backup"			# make Timeshift rsync snapshot
 				status=$?														# store the exit status of the previous command
 				if [ $status -ne 0 ]; then										# if exit status is not 0
 					log "$err3" && exit 3										# regiter log for error while creating snapshot
