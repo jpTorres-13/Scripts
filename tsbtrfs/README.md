@@ -20,3 +20,5 @@ can be used normally.
     * Take RSYNC backups
     * Clear excedent RSYNC backups
     * Logging monitoring
+* ### v1.1.0
+    * Scheduling execution for taking and cleaning backups
