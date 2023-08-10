@@ -1,7 +1,8 @@
 # Scripts
 Scripts for personal tasks automation
 
-* TSBTRFS: Timeshift mode change automation (from BTRFS to RSYNC and back).
+* TSBTRFS: Timeshift mode changer automation (from BTRFS to RSYNC and back)
+  for RSYNC backups in BTRFS systems.
 
 ---
 
